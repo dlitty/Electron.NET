@@ -5,6 +5,7 @@ const path = require('path');
 const cProcess = require('child_process').spawn;
 const portscanner = require('portscanner');
 const imageSize = require('image-size');
+const log = require('electron-log');
 let io, server, browserWindows, ipc, apiProcess, loadURL;
 let appApi, menu, dialogApi, notification, tray, webContents;
 let globalShortcut, shellApi, screen, clipboard, autoUpdater;
@@ -13,8 +14,6 @@ let powerMonitor;
 let splashScreen, hostHook;
 let mainWindowId, nativeTheme;
 let dock;
-let launchFile;
-let launchUrl;
 
 let manifestJsonFileName = 'electron.manifest.json';
 let watchable = false;
@@ -35,17 +34,7 @@ if (watchable) {
     manifestJsonFilePath = path.join(currentBinPath, manifestJsonFileName);
 }
 
-//  handle macOS events for opening the app with a file, etc
-app.on('will-finish-launching', () => {
-	app.on('open-file', (evt, file) => {
-		evt.preventDefault();
-		launchFile = file;
-	})
-	app.on('open-url', (evt, url) => {
-		evt.preventDefault();
-		launchUrl = url;
-	})
-});
+log.info("old location of will-finish-launching handler");
 
 const manifestJsonFile = require(manifestJsonFilePath);
 if (manifestJsonFile.singleInstance || manifestJsonFile.aspCoreBackendPort) {
@@ -209,35 +198,9 @@ function startSocketApiBridge(port) {
         powerMonitor = require('./api/powerMonitor')(socket);
         nativeTheme = require('./api/nativeTheme')(socket);
 		dock = require('./api/dock')(socket);
+
+		log.info("old location of register handlers");
 		
-		socket.on('register-app-open-file-event', (id) => {
-			electronSocket = socket;
-
-			app.on('open-file', (event, file) => {
-				event.preventDefault();
-	
-				electronSocket.emit('app-open-file' + id, file);
-			});
-			
-			if (launchFile) {
-				electronSocket.emit('app-open-file' + id, launchFile);
-			}
-		});
-		
-		socket.on('register-app-open-url-event', (id) => {
-			electronSocket = socket;
-
-			app.on('open-url', (event, url) => {
-				event.preventDefault();
-	
-				electronSocket.emit('app-open-url' + id, url);
-			});
-			
-			if (launchUrl) {
-				electronSocket.emit('app-open-url' + id, launchUrl);
-			}
-		});
-
         try {
             const hostHookScriptFilePath = path.join(__dirname, 'ElectronHostHook', 'index.js');
 

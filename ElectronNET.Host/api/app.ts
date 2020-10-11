@@ -1,7 +1,60 @@
+const log = require('electron-log');
 let isQuitWindowAllClosed = true, electronSocket;
 let appWindowAllClosedEventId;
+let launchFile : string;
+let launchUrl : string;
+
 export = (socket: SocketIO.Socket, app: Electron.App) => {
-    electronSocket = socket;
+	electronSocket = socket;
+	
+	log.info("inside constructor");
+
+	
+
+	//  handle macOS events for opening the app with a file, etc
+	app.on('will-finish-launching', () => {
+		log.info("inside will-finish-launching");
+		app.on('open-file', (evt, file) => {
+			log.info("inside app open-file");
+			evt.preventDefault();
+			launchFile = file;
+		})
+		app.on('open-url', (evt, url) => {
+			evt.preventDefault();
+			launchUrl = url;
+		})
+	});
+
+	socket.on('register-app-open-file-event', (id) => {
+		electronSocket = socket;
+		log.info("inside register");
+
+		app.on('open-file', (event, file) => {
+			event.preventDefault();
+			log.info("inside app open-file 2");
+
+			electronSocket.emit('app-open-file' + id, file);
+		});
+		
+		if (launchFile) {
+			electronSocket.emit('app-open-file' + id, launchFile);
+		}
+	});
+	
+	socket.on('register-app-open-url-event', (id) => {
+		electronSocket = socket;
+
+		app.on('open-url', (event, url) => {
+			event.preventDefault();
+
+			electronSocket.emit('app-open-url' + id, url);
+		});
+		
+		if (launchUrl) {
+			electronSocket.emit('app-open-url' + id, launchUrl);
+		}
+	});
+
 
     // By default, quit when all windows are closed
     app.on('window-all-closed', () => {
@@ -298,5 +351,5 @@ export = (socket: SocketIO.Socket, app: Electron.App) => {
 
     socket.on('appSetUserAgentFallback', (userAgent) => {
         app.userAgentFallback = userAgent;
-    });
+	});
 };
